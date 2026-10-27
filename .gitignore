@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+# Окружение и секреты
+.venv/
+.env
+.env.*
+!.env.example
+# Кэши инструментов
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+# Docker / данные
+*.log
+pgdata/
+# IDE и ОС
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
