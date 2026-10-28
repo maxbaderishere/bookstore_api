@@ -1,4 +1,3 @@
-
 def draw_heart(size=12):
 
     for j in range(int(size * 1.4), -int(size * 1.2) - 1, -1):
@@ -11,8 +10,7 @@ def draw_heart(size=12):
             else:
                 row += "  "
         print(row.rstrip())
- 
- 
+
+
 if __name__ == "__main__":
     draw_heart(12)
- 

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
 
-class ORMMODEL(BaseModel):
+class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+

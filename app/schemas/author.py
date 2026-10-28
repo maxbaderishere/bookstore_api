@@ -1,19 +1,26 @@
 from pydantic import BaseModel, Field
 
-from app.schemas.ormmodel import ORMMODEL
+from app.schemas.common import Year
+from app.schemas.ormmodel import ORMModel
 
 
-class AuthorBase(BaseModel):
-    name : str = Field(min_length=1,max_length=100)
-    bio : str | None = None
+class AuthorCreate(BaseModel):
+    full_name: str = Field(min_length=1, max_length=200)
+    birth_year: Year | None = None
+    bio: str | None = None
 
-class AuthorCreate(AuthorBase):
-    pass
 
-class AuthorUpdate(AuthorBase):
-    name : str | None = Field(min_length=1,max_length=100)
-    bio : str | None = None
+class AuthorUpdate(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=200)
+    bio: str | None = None
+    birth_year: Year | None = None
 
-class AuthorOut(ORMMODEL):
+
+class AuthorShort(ORMModel):
     id: int
-    full_name : str
+    full_name: str
+
+
+class AuthorOut(AuthorShort):
+    bio: str | None = None
+    birth_year: int | None = None

@@ -1,19 +1,20 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-from app.schemas.ormmodel import ORMMODEL
+from app.schemas.common import GenreName, Slug
+from app.schemas.ormmodel import ORMModel
 
 
 class GenreCreate(BaseModel):
-    name : str = Field(min_length=1)
-    slug : str = Field(min_length=1)
+    name: GenreName
+    slug: Slug
 
-class GenreOut(ORMMODEL):
-    id : int
-    name : str
-    slug : str
-    
-    
+
+class GenreOut(ORMModel):
+    id: int
+    name: str
+    slug: str
+
+
 class GenreUpdate(BaseModel):
-    name : str | None = None
-    slug : str | None = None
-    
+    name: GenreName | None = None
+    slug: Slug | None = None
