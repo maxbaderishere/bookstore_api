@@ -1,15 +1,15 @@
 from pydantic import BaseModel
 
 from app.schemas.common import GenreName, Slug
-from app.schemas.ormmodel import ORMModel
+from app.schemas.out_schema import out_schema
 
 
 class GenreCreate(BaseModel):
     name: GenreName
     slug: Slug
 
-
-class GenreOut(ORMModel):
+@out_schema
+class GenreOut(BaseModel):
     id: int
     name: str
     slug: str

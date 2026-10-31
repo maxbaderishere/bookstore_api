@@ -1,17 +1,13 @@
 from datetime import datetime
-from enum import StrEnum
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.schemas.ormmodel import ORMModel
+from app.core.enums import Role
+from app.schemas.out_schema import out_schema
 
 
-class Role(StrEnum):
-    customer = "customer"
-    admin = "admin"
-
-
-class UserOut(ORMModel):
+@out_schema
+class UserOut(BaseModel):
     id: int
     email: str
     full_name: str

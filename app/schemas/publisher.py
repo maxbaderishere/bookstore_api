@@ -1,13 +1,13 @@
 from pydantic import BaseModel, Field
 
-from app.schemas.ormmodel import ORMModel
+from app.schemas.out_schema import out_schema
 
 
 class PublisherCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
 
-
-class PublisherOut(ORMModel):
+@out_schema
+class PublisherOut(BaseModel):
     id: int
     name: str
 

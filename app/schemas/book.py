@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from app.schemas.author import AuthorShort
 from app.schemas.common import ISBN, Language, Price, Title, Year
 from app.schemas.genre import GenreOut
-from app.schemas.ormmodel import ORMModel
+from app.schemas.out_schema import out_schema
 from app.schemas.publisher import PublisherOut
 
 
@@ -26,7 +26,8 @@ class BookCreate(BaseModel):
     genre_ids: list[int]
 
 # GET
-class BookOut(ORMModel):
+@out_schema
+class BookOut(BaseModel):
     id: int
     title: str
     description: str | None = None

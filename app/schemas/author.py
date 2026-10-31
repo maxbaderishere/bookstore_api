@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.schemas.common import Year
-from app.schemas.ormmodel import ORMModel
+from app.schemas.out_schema import out_schema
 
 
 class AuthorCreate(BaseModel):
@@ -16,7 +16,8 @@ class AuthorUpdate(BaseModel):
     birth_year: Year | None = None
 
 
-class AuthorShort(ORMModel):
+@out_schema
+class AuthorShort(BaseModel):
     id: int
     full_name: str
 

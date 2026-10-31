@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, computed_field
 
-from app.schemas.ormmodel import ORMModel
+from app.schemas.out_schema import ORMModel, out_schema
 
 
 class CartItemAdd(BaseModel):
@@ -21,8 +21,8 @@ class BookInCart(ORMModel):
     stock: int
     cover_url: str | None
 
-
-class CartItemOut(ORMModel):
+@out_schema
+class CartItemOut(BaseModel):
     book: BookInCart
     quantity: int
 

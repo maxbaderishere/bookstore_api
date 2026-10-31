@@ -1,26 +1,19 @@
 from datetime import datetime
 from decimal import Decimal
-from enum import StrEnum
 
 from pydantic import AliasPath, BaseModel, Field, computed_field
 
+from app.core.enums import OrderStatus
 from app.schemas.common import ShippingAddress
-from app.schemas.ormmodel import ORMModel
-
-
-class OrderStatus(StrEnum):
-    pending = "pending"
-    paid = "paid"
-    shipped = "shipped"
-    delivered = "delivered"
-    cancelled = "cancelled"
+from app.schemas.out_schema import out_schema
 
 
 class OrderCreate(BaseModel):
     shipping_address: ShippingAddress
 
 
-class OrderItemOut(ORMModel):
+@out_schema
+class OrderItemOut(BaseModel):
     book_id: int
     title: str = Field(validation_alias=AliasPath("book", "title"))
     quantity: int 
@@ -31,7 +24,8 @@ class OrderItemOut(ORMModel):
         return self.quantity * self.unit_price
 
 
-class OrderOut(ORMModel):
+@out_schema
+class OrderOut(BaseModel):
     id: int
     items: list[OrderItemOut]
     status: OrderStatus
