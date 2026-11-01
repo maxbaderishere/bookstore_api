@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 import app.models  # noqa: F401, RUF100
-from app.models.base import Base, engine
+from app.db.base import engine
+from app.models.base import Base
 from app.routers import books
 
 
