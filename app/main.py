@@ -4,7 +4,6 @@ from fastapi import FastAPI
 
 import app.models  # noqa: F401, RUF100
 from app.models.base import Base, engine
-
 from app.routers import books
 
 
