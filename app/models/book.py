@@ -8,7 +8,7 @@ from app.models.base import Base
 from app.models.mixins import TimeStampMixin
 
 
-class Books(Base, TimeStampMixin):
+class Book(Base, TimeStampMixin):
     __tablename__ = "books"
     title: Mapped[str] = mapped_column(index=True)
     description: Mapped[str | None] 

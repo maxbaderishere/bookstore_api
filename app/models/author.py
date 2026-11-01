@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base
 
 
-class Authors(Base):
+class Author(Base):
     __tablename__ = "authors"
     full_name: Mapped[str] = mapped_column(
         String(200),

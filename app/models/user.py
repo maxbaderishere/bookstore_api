@@ -7,7 +7,7 @@ from app.models.mixins import TimeStampMixin
 from app.schemas.user import Role
 
 
-class Users(Base, TimeStampMixin):
+class User(Base, TimeStampMixin):
 
     __tablename__ = "users"
 

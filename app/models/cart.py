@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base
 
 
-class CartItems(Base):
+class CartItem(Base):
     __tablename__ = "cart_items"
 
     user_id: Mapped[int] = mapped_column(

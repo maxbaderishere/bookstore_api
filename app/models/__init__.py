@@ -1,10 +1,10 @@
-from app.models.author import Authors
+from app.models.author import Author
 from app.models.base import Base
-from app.models.book import BookAuthor, Books
-from app.models.cart import CartItems
-from app.models.genre import Genres
+from app.models.book import BookAuthor, Book
+from app.models.cart import CartItem
+from app.models.genre import Genre
 from app.models.order import OrderItems, Orders
-from app.models.publisher import Publishers
-from app.models.user import Users
+from app.models.publisher import Publisher
+from app.models.user import User
 
-__all__ = ["Authors", "Base", "BookAuthor", "Books", "CartItems", "Genres", "OrderItems", "Orders", "Publishers", "Users"]
+__all__ = ["Author", "Base", "BookAuthor", "Book", "CartItem", "Genre", "OrderItems", "Orders", "Publisher", "User"]
