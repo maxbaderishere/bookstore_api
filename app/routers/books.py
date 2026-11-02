@@ -8,11 +8,11 @@ from app.models.author import Author
 from app.models.book import Book
 from app.models.genre import Genre
 from app.models.publisher import Publisher
+from app.routers.utils import commit_or_409, fetch_by_ids
 from app.schemas.book import BookCreate, BookOut, BookUpdate
 
 router = APIRouter(prefix="/books", tags=["books"])
 
-# Поля, которые нельзя обнулять через PATCH (подправьте под свои колонки с NOT NULL)
 NOT_NULLABLE = {"title", "isbn", "price", "stock", "publication_year", "language", "pages"}
 
 
@@ -24,29 +24,12 @@ def book_query():
     )
 
 
-async def fetch_by_ids(db: DbSession, model, ids: list[int], name: str) -> list:
-    unique_ids = set(ids)
-    result = await db.execute(select(model).where(model.id.in_(unique_ids)))
-    items = list(result.scalars().all())
-    if len(items) != len(unique_ids):
-        raise HTTPException(status_code=404, detail=f"Some {name} not found")
-    return items
-
 
 async def ensure_publisher(db: DbSession, publisher_id: int) -> None:
     if await db.get(Publisher, publisher_id) is None:
         raise HTTPException(status_code=404, detail="Publisher not found")
 
 
-async def commit_or_409(db: DbSession) -> None:
-    try:
-        await db.commit()
-    except IntegrityError:
-        await db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Conflict: a book with such unique data (e.g. ISBN) already exists",
-        )
 
 
 async def load_book(db: DbSession, book_id: int, *, refresh: bool = False) -> Book | None:
@@ -132,3 +115,5 @@ async def delete_book(db: DbSession, book_id: int):
         raise HTTPException(status_code=404, detail="There is no such book")
     await db.delete(book)
     await db.commit()
+
+

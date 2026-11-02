@@ -11,7 +11,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:  # noqa: UP043
     async with session_maker() as session:
         try:
             yield session
-            session.commit()
+            await session.commit()
         except Exception:
             await session.rollback()
             raise

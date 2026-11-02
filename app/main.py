@@ -5,7 +5,7 @@ from fastapi import FastAPI
 import app.models  # noqa: F401, RUF100
 from app.db.base import engine
 from app.models.base import Base
-from app.routers import books
+from app.routers import api_router
 
 
 @asynccontextmanager
@@ -15,9 +15,8 @@ async def lifespan(app: FastAPI):
     yield
     await engine.dispose()
 
-
 app = FastAPI(lifespan=lifespan, title="BookStoreApi")
-app.include_router(books.router)
+app.include_router(api_router)
 
 
 
