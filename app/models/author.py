@@ -1,7 +1,8 @@
 from sqlalchemy import SmallInteger, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
+from app.models.book import Book
 
 
 class Author(Base):
@@ -16,4 +17,5 @@ class Author(Base):
         SmallInteger,
         nullable=True
     ) 
+    books: Mapped[list["Book"]] = relationship(secondary="book_authors", back_populates="authors")  # noqa: UP037
 

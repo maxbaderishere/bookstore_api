@@ -1,4 +1,4 @@
-import app.models  # noqa: F401, RUF100
+
 from app.db.seeds import seed_database
 from app.db.session import engine, session_maker
 from app.models.base import Base

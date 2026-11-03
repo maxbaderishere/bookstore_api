@@ -1,13 +1,18 @@
 
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, ForeignKey, Numeric, SmallInteger, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 from app.models.mixins import TimeStampMixin
 
-
+if TYPE_CHECKING:
+    from app.models.author import Author
+    from app.models.genre import Genre
+    from app.models.publisher import Publisher
+    
 class Book(Base, TimeStampMixin):
     __tablename__ = "books"
     title: Mapped[str] = mapped_column(index=True)
@@ -21,6 +26,7 @@ class Book(Base, TimeStampMixin):
         ForeignKey("publishers.id", ondelete="SET NULL"),
         index=True
 )
+    publisher: Mapped["Publisher | None"] = relationship(back_populates="books")  # noqa: UP037
     publication_year: Mapped[int | None] = mapped_column(
     SmallInteger,
     CheckConstraint(
@@ -41,7 +47,15 @@ class Book(Base, TimeStampMixin):
     stock: Mapped[int] = mapped_column(
         CheckConstraint("stock >= 0", name="ck_books_stock_positive"),
         default=0,
-    )
+)
+    authors: Mapped[list["Author"]] = relationship(  # noqa: UP037
+    secondary="book_authors",
+    back_populates="books",
+)
+    genres: Mapped[list["Genre"]] = relationship(  # noqa: UP037
+        secondary="book_genres",
+        back_populates="books"
+)
     cover_url: Mapped[str] = mapped_column(String(500))
     is_archived: Mapped[bool] = mapped_column(default=False)
 
@@ -56,5 +70,18 @@ class BookAuthor(Base):
 
     author_id: Mapped[int] = mapped_column(
         ForeignKey("authors.id", ondelete="RESTRICT"),
+        primary_key=True
+    )
+
+class BookGenre(Base):
+    __tablename__ = "book_genres"
+
+    book_id: Mapped[int] = mapped_column(
+        ForeignKey("books.id", ondelete="CASCADE"),
+        primary_key=True
+    )
+
+    genre_id: Mapped[int] = mapped_column(
+        ForeignKey("genres.id", ondelete="CASCADE"),
         primary_key=True
     )

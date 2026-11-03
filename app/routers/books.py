@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.db.session import DbSession

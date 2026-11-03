@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+import app.models  # noqa: F401, RUF100
 from app.db.base import init_db
 from app.routers import api_router
 
