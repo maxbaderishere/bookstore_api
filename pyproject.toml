@@ -1,7 +1,7 @@
 [project]
 name = "bookstore-api"
 version = "0.1.0"
-description = "Add your description here"
+description = "Simple bookstore api, made on FastApi"
 readme = "README.md"
 authors = [
     { name = "Maksim Bader-Baer", email = "maksim.bader@gmail.com" }
