@@ -1,11 +1,12 @@
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+import app.models  # noqa: F401, RUF100
+from app.db.seeds import seed_database
+from app.db.session import engine, session_maker
+from app.models.base import Base
 
-from app.core.config import cfg
 
-engine = create_async_engine(cfg.DATABASE_URL, echo=False)
+async def init_db():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-session_maker = async_sessionmaker(
-    engine,
-    expire_on_commit=False
-)
-
+    async with session_maker() as session:
+        await seed_database(session)

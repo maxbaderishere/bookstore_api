@@ -2,9 +2,16 @@ from collections.abc import AsyncGenerator
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.db.base import session_maker
+from app.core.config import cfg
+
+engine = create_async_engine(cfg.DATABASE_URL, echo=False)
+
+session_maker = async_sessionmaker(
+    engine,
+    expire_on_commit=False
+)
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:  # noqa: UP043
