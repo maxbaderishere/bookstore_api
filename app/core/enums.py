@@ -6,7 +6,6 @@ class Role(StrEnum):
     admin = "admin"
 
 
-
 class OrderStatus(StrEnum):
     pending = "pending"
     paid = "paid"

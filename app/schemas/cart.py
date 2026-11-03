@@ -21,6 +21,7 @@ class BookInCart(ORMModel):
     stock: int
     cover_url: str | None
 
+
 @out_schema
 class CartItemOut(BaseModel):
     book: BookInCart
@@ -41,4 +42,3 @@ class CartOut(BaseModel):
     @computed_field
     def total_amount(self) -> Decimal:
         return sum((i.subtotal for i in self.items), Decimal(0))
-

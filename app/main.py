@@ -12,8 +12,6 @@ async def lifespan(app: FastAPI):
     await init_db()
     yield
 
+
 app = FastAPI(lifespan=lifespan, title="BookStoreApi")
 app.include_router(api_router)
-
-
-

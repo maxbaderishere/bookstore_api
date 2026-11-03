@@ -25,6 +25,7 @@ class BookCreate(BaseModel):
     author_ids: list[int]
     genre_ids: list[int]
 
+
 # GET
 @out_schema
 class BookOut(BaseModel):
@@ -37,7 +38,7 @@ class BookOut(BaseModel):
     pages: int | None
     price: Decimal
     stock: int
-    cover_url: str | None   
+    cover_url: str | None
     publisher: PublisherOut | None
     authors: list[AuthorShort]
     genres: list[GenreOut]

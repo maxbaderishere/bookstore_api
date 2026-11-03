@@ -4,7 +4,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.core.config import cfg
-from app.models.author import Author  #noqa
+from app.models.author import Author  # noqa
 from app.models.base import Base
 
 # this is the Alembic Config object, which provides
@@ -15,7 +15,6 @@ config = context.config
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
 
 
 config.set_main_option("sqlalchemy.url", cfg.DATABASE_URL + "?async_fallback=true")
@@ -69,9 +68,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

@@ -7,9 +7,5 @@ from app.models.book import Book
 
 class Publisher(Base):
     __tablename__ = "publishers"
-    name: Mapped[str] = mapped_column(
-        String(200),
-        unique=True, 
-        nullable=False
-    )
+    name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     books: Mapped[list["Book"]] = relationship(back_populates="publisher")  # noqa: UP037

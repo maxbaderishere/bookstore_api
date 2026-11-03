@@ -12,7 +12,15 @@ from app.schemas.book import BookCreate, BookOut, BookUpdate
 
 router = APIRouter(prefix="/books", tags=["books"])
 
-NOT_NULLABLE = {"title", "isbn", "price", "stock", "publication_year", "language", "pages"}
+NOT_NULLABLE = {
+    "title",
+    "isbn",
+    "price",
+    "stock",
+    "publication_year",
+    "language",
+    "pages",
+}
 
 
 def book_query():
@@ -23,15 +31,14 @@ def book_query():
     )
 
 
-
 async def ensure_publisher(db: DbSession, publisher_id: int) -> None:
     if await db.get(Publisher, publisher_id) is None:
         raise HTTPException(status_code=404, detail="Publisher not found")
 
 
-
-
-async def load_book(db: DbSession, book_id: int, *, refresh: bool = False) -> Book | None:
+async def load_book(
+    db: DbSession, book_id: int, *, refresh: bool = False
+) -> Book | None:
     stmt = book_query().where(Book.id == book_id)
     if refresh:
         # перечитать данные, даже если объект уже есть в сессии
@@ -114,5 +121,3 @@ async def delete_book(db: DbSession, book_id: int):
         raise HTTPException(status_code=404, detail="There is no such book")
     await db.delete(book)
     await db.commit()
-
-

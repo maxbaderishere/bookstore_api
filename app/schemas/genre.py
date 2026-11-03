@@ -8,6 +8,7 @@ class GenreCreate(BaseModel):
     name: GenreName
     slug: Slug
 
+
 @out_schema
 class GenreOut(BaseModel):
     id: int

@@ -15,37 +15,41 @@ def publisher_query():
         joinedload(Publisher.name).selectinload(Publisher.id)
     )
 
+
 async def load_publisher(
-        db: DbSession,
-        publisher_id: int,
-        *,
-        refresh: bool = False,
-    ):
+    db: DbSession,
+    publisher_id: int,
+    *,
+    refresh: bool = False,
+):
     stmt = select(Publisher).where(Publisher.id == publisher_id)
     if refresh:
         stmt = stmt.execution_options(populate_existing=True)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
+
 @router.get("", response_model=list[PublisherOut])
 async def get_publishers(
     db: DbSession,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
-    ):
+):
     stmt = select(Publisher).limit(limit).offset(offset)
     result = await db.execute(stmt)
     return result.scalars().all()
+
 
 @router.get("/{publisher_id}", response_model=PublisherOut)
 async def show_publisher(
     db: DbSession,
     publisher_id: int,
-    ):
-    publisher = await load_publisher(db ,publisher_id)
+):
+    publisher = await load_publisher(db, publisher_id)
     if publisher is None:
         raise HTTPException(status_code=404, detail="There is no such publisher")
     return publisher
+
 
 @router.post("", response_model=PublisherOut, status_code=201)
 async def create_publisher(db: DbSession, data: PublisherCreate):
@@ -55,6 +59,7 @@ async def create_publisher(db: DbSession, data: PublisherCreate):
     await commit_or_409(db)
 
     return publisher
+
 
 @router.patch("/{publisher_id}", response_model=PublisherOut)
 async def change_publisher(db: DbSession, publisher_id: int, data: PublisherUpdate):
@@ -70,8 +75,6 @@ async def change_publisher(db: DbSession, publisher_id: int, data: PublisherUpda
     await commit_or_409(db)
     await db.refresh(publisher)
     return publisher
-
-
 
 
 @router.delete("/{publisher_id}", status_code=204)

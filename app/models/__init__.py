@@ -7,4 +7,15 @@ from app.models.order import OrderItems, Orders
 from app.models.publisher import Publisher
 from app.models.user import User
 
-__all__ = ["Author", "BaseModel", "Book", "BookAuthor", "CartItem", "Genre", "OrderItems", "Orders", "Publisher", "User"]
+__all__ = [
+    "Author",
+    "BaseModel",
+    "Book",
+    "BookAuthor",
+    "CartItem",
+    "Genre",
+    "OrderItems",
+    "Orders",
+    "Publisher",
+    "User",
+]

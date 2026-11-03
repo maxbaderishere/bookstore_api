@@ -13,6 +13,7 @@ async def fetch_by_ids(db: DbSession, model, ids: list[int], name: str) -> list:
         raise HTTPException(status_code=404, detail=f"Some {name} not found")
     return items
 
+
 async def commit_or_409(db: DbSession) -> None:
     try:
         await db.commit()

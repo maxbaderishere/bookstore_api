@@ -16,7 +16,7 @@ class OrderCreate(BaseModel):
 class OrderItemOut(BaseModel):
     book_id: int
     title: str = Field(validation_alias=AliasPath("book", "title"))
-    quantity: int 
+    quantity: int
     unit_price: Decimal
 
     @computed_field
@@ -33,7 +33,6 @@ class OrderOut(BaseModel):
     shipping_address: ShippingAddress
     created_at: datetime
     paid_at: datetime | None
-
 
 
 class OrderStatusUpdate(BaseModel):
