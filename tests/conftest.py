@@ -3,13 +3,15 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from httpx import AsyncClient, ASGITransport
 
+from sqlalchemy.pool import NullPool
+
 from app.core.config import cfg
 from app.db.seeds import seed_database
 from app.db.session import get_db
 from app.main import app
 from app.models.base import BaseModel
 
-test_engine = create_async_engine(cfg.TEST_DATABASE_URL, echo=False)
+test_engine = create_async_engine(cfg.TEST_DATABASE_URL, echo=False, poolclass = NullPool)
 
 test_sessionmaker = async_sessionmaker(test_engine, expire_on_commit=False)
 

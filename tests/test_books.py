@@ -8,3 +8,5 @@ async def test_get_books(client: AsyncClient):
 
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
