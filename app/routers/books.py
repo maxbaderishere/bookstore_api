@@ -75,9 +75,9 @@ async def create_book(db: DbSession, data: BookCreate):
     if values.get("publisher_id") is not None:
         await ensure_publisher(db, values["publisher_id"])
 
-    book = Book(**values)
-    book.authors = await fetch_by_ids(db, Author, author_ids, "authors")
-    book.genres = await fetch_by_ids(db, Genre, genre_ids, "genres")
+    authors = await fetch_by_ids(db, Author, author_ids, "authors")
+    genres = await fetch_by_ids(db, Genre, genre_ids, "genres")
+    book = Book(**values, authors=authors, genres=genres)
 
     db.add(book)
     await commit_or_409(db)

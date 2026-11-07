@@ -3,6 +3,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 WORKDIR /code
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
+COPY alembic.ini ./
+COPY src/migrations ./src/migrations
 COPY app ./app
 COPY tests ./tests
 ENV PATH="/code/.venv/bin:$PATH"

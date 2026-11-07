@@ -12,4 +12,4 @@ class Author(Base):
     birth_year: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     books: Mapped[list["Book"]] = relationship(
         secondary="book_authors", back_populates="authors"
-    )  # noqa: UP037
+    )

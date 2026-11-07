@@ -1,3 +1,11 @@
+# Общие настройки для app и migrate: один образ, одна и та же база.
+x-app-common: &app-common
+  build: .
+  image: bookstore-api
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+
 services:
   db:
     image: postgres:17-alpine
@@ -13,15 +21,21 @@ services:
       timeout: 3s
       retries: 10
 
+  # Одноразовый сервис: применяет миграции и завершается.
+  migrate:
+    <<: *app-common
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
   app:
-    build: .
-    env_file: .env
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    <<: *app-common
     ports:
       - "8000:8000"
     depends_on:
       db:
         condition: service_healthy
-
-  
+      migrate:
+        condition: service_completed_successfully

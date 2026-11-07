@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import CheckConstraint, ForeignKey, Numeric, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
+from app.models.base import Base, BaseModel
 from app.models.mixins import TimeStampMixin
 
 if TYPE_CHECKING:
@@ -58,7 +58,7 @@ class Book(Base, TimeStampMixin):
     is_archived: Mapped[bool] = mapped_column(default=False)
 
 
-class BookAuthor(Base):
+class BookAuthor(BaseModel):
     __tablename__ = "book_authors"
 
     book_id: Mapped[int] = mapped_column(
@@ -70,7 +70,7 @@ class BookAuthor(Base):
     )
 
 
-class BookGenre(Base):
+class BookGenre(BaseModel):
     __tablename__ = "book_genres"
 
     book_id: Mapped[int] = mapped_column(

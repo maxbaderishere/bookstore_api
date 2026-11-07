@@ -1,11 +1,7 @@
 from app.db.seeds import seed_database
-from app.db.session import engine, session_maker
-from app.models.base import BaseModel
+from app.db.session import session_maker
 
 
 async def init_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(BaseModel.metadata.create_all)
-
     async with session_maker() as session:
         await seed_database(session)

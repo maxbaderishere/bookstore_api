@@ -1,0 +1,410 @@
+diff --git a/alembic.ini b/alembic.ini
+index 7e2537d..c6c3bd7 100644
+--- a/alembic.ini
++++ b/alembic.ini
+@@ -18,7 +18,7 @@ script_location = src/migrations
+ # sys.path path, will be prepended to sys.path if present.
+ # defaults to the current working directory.  for multiple paths, the path separator
+ # is defined by "path_separator" below.
+-prepend_sys_path = . src
++prepend_sys_path = .
+ 
+ 
+ # timezone to use when rendering the date within the migration file
+diff --git a/app/models/book.py b/app/models/book.py
+index 8adcafe..61963c8 100644
+--- a/app/models/book.py
++++ b/app/models/book.py
+@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
+ from sqlalchemy import CheckConstraint, ForeignKey, Numeric, SmallInteger, String
+ from sqlalchemy.orm import Mapped, mapped_column, relationship
+ 
+-from app.models.base import Base
++from app.models.base import Base, BaseModel
+ from app.models.mixins import TimeStampMixin
+ 
+ if TYPE_CHECKING:
+@@ -58,7 +58,7 @@ class Book(Base, TimeStampMixin):
+     is_archived: Mapped[bool] = mapped_column(default=False)
+ 
+ 
+-class BookAuthor(Base):
++class BookAuthor(BaseModel):
+     __tablename__ = "book_authors"
+ 
+     book_id: Mapped[int] = mapped_column(
+@@ -70,7 +70,7 @@ class BookAuthor(Base):
+     )
+ 
+ 
+-class BookGenre(Base):
++class BookGenre(BaseModel):
+     __tablename__ = "book_genres"
+ 
+     book_id: Mapped[int] = mapped_column(
+diff --git a/app/models/cart.py b/app/models/cart.py
+index ebce72e..7894059 100644
+--- a/app/models/cart.py
++++ b/app/models/cart.py
+@@ -1,6 +1,6 @@
+ from datetime import datetime
+ 
+-from sqlalchemy import CheckConstraint, DateTime, func
++from sqlalchemy import CheckConstraint, DateTime, ForeignKey, UniqueConstraint, func
+ from sqlalchemy.orm import Mapped, mapped_column
+ 
+ from app.models.base import Base
+@@ -8,9 +8,12 @@ from app.models.base import Base
+ 
+ class CartItem(Base):
+     __tablename__ = "cart_items"
++    __table_args__ = (
++        UniqueConstraint("user_id", "book_id", name="uq_cart_items_user_book"),
++    )
+ 
+-    user_id: Mapped[int] = mapped_column(unique=True)
+-    book_id: Mapped[int] = mapped_column(unique=True)
++    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
++    book_id: Mapped[int] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"))
+     quantity: Mapped[int] = mapped_column(
+         CheckConstraint("quantity > 0", name="ck_cart_items_quantity_positive")
+     )
+diff --git a/docker-compose.yaml b/docker-compose.yaml
+index 99cd404..6aadc36 100644
+--- a/docker-compose.yaml
++++ b/docker-compose.yaml
+@@ -1,3 +1,11 @@
++# Общие настройки для app и migrate: один образ, одна и та же база.
++x-app-common: &app-common
++  build: .
++  image: bookstore-api
++  env_file: .env
++  environment:
++    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
++
+ services:
+   db:
+     image: postgres:17-alpine
+@@ -13,15 +21,21 @@ services:
+       timeout: 3s
+       retries: 10
+ 
++  # Одноразовый сервис: применяет миграции и завершается.
++  migrate:
++    <<: *app-common
++    command: ["alembic", "upgrade", "head"]
++    restart: "no"
++    depends_on:
++      db:
++        condition: service_healthy
++
+   app:
+-    build: .
+-    env_file: .env
+-    environment:
+-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
++    <<: *app-common
+     ports:
+       - "8000:8000"
+     depends_on:
+       db:
+         condition: service_healthy
+-
+-  
+\ No newline at end of file
++      migrate:
++        condition: service_completed_successfully
+diff --git a/dockerfile b/dockerfile
+index 3e08825..cf04c10 100644
+--- a/dockerfile
++++ b/dockerfile
+@@ -3,6 +3,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+ WORKDIR /code
+ COPY pyproject.toml uv.lock ./
+ RUN uv sync --frozen --no-install-project
++COPY alembic.ini ./
++COPY src/migrations ./src/migrations
+ COPY app ./app
+ COPY tests ./tests
+ ENV PATH="/code/.venv/bin:$PATH"
+diff --git a/src/migrations/env.py b/src/migrations/env.py
+index dc60415..b0df1fd 100644
+--- a/src/migrations/env.py
++++ b/src/migrations/env.py
+@@ -1,77 +1,75 @@
++import asyncio
+ from logging.config import fileConfig
+ 
+ from alembic import context
+-from sqlalchemy import engine_from_config, pool
++from sqlalchemy import pool
++from sqlalchemy.engine import Connection
++from sqlalchemy.ext.asyncio import async_engine_from_config
+ 
++from app import models  # noqa: F401  (импорт регистрирует все модели в metadata)
+ from app.core.config import cfg
+-from app.models.author import Author  # noqa
+-from app.models.base import Base
++from app.models.base import BaseModel
+ 
+ # this is the Alembic Config object, which provides
+ # access to the values within the .ini file in use.
+ config = context.config
+ 
+ # Interpret the config file for Python logging.
+-# This line sets up loggers basically.
+ if config.config_file_name is not None:
+     fileConfig(config.config_file_name)
+ 
++if not cfg.DATABASE_URL:
++    raise RuntimeError("DATABASE_URL is not set")
+ 
+-config.set_main_option("sqlalchemy.url", cfg.DATABASE_URL + "?async_fallback=true")
+-# add your model's MetaData object here
+-# for 'autogenerate' support
+-# from myapp import mymodel
+-# target_metadata = mymodel.Base.metadata
+-target_metadata = Base.metadata
++# "%" в пароле ломает configparser, поэтому его нужно экранировать.
++config.set_main_option("sqlalchemy.url", cfg.DATABASE_URL.replace("%", "%%"))
+ 
+-# other values from the config, defined by the needs of env.py,
+-# can be acquired:
+-# my_important_option = config.get_main_option("my_important_option")
+-# ... etc.
++# MetaData, по которой Alembic сравнивает модели с базой (autogenerate).
++target_metadata = BaseModel.metadata
+ 
+ 
+ def run_migrations_offline() -> None:
+-    """Run migrations in 'offline' mode.
+-
+-    This configures the context with just a URL
+-    and not an Engine, though an Engine is acceptable
+-    here as well.  By skipping the Engine creation
+-    we don't even need a DBAPI to be available.
+-
+-    Calls to context.execute() here emit the given string to the
+-    script output.
+-
+-    """
++    """Run migrations in 'offline' mode (генерирует SQL без подключения к БД)."""
+     url = config.get_main_option("sqlalchemy.url")
+     context.configure(
+         url=url,
+         target_metadata=target_metadata,
+         literal_binds=True,
+         dialect_opts={"paramstyle": "named"},
++        compare_type=True,
+     )
+ 
+     with context.begin_transaction():
+         context.run_migrations()
+ 
+ 
+-def run_migrations_online() -> None:
+-    """Run migrations in 'online' mode.
++def do_run_migrations(connection: Connection) -> None:
++    context.configure(
++        connection=connection,
++        target_metadata=target_metadata,
++        compare_type=True,
++    )
++
++    with context.begin_transaction():
++        context.run_migrations()
+ 
+-    In this scenario we need to create an Engine
+-    and associate a connection with the context.
+ 
+-    """
+-    connectable = engine_from_config(
++async def run_async_migrations() -> None:
++    """Run migrations in 'online' mode через async-движок (asyncpg)."""
++    connectable = async_engine_from_config(
+         config.get_section(config.config_ini_section, {}),
+         prefix="sqlalchemy.",
+         poolclass=pool.NullPool,
+     )
+ 
+-    with connectable.connect() as connection:
+-        context.configure(connection=connection, target_metadata=target_metadata)
++    async with connectable.connect() as connection:
++        await connection.run_sync(do_run_migrations)
+ 
+-        with context.begin_transaction():
+-            context.run_migrations()
++    await connectable.dispose()
++
++
++def run_migrations_online() -> None:
++    asyncio.run(run_async_migrations())
+ 
+ 
+ if context.is_offline_mode():
+diff --git a/src/migrations/versions/b70e29b2658d_initial_schema.py b/src/migrations/versions/b70e29b2658d_initial_schema.py
+new file mode 100644
+index 0000000..9f0efd0
+--- /dev/null
++++ b/src/migrations/versions/b70e29b2658d_initial_schema.py
+@@ -0,0 +1,160 @@
++"""initial schema
++
++Revision ID: b70e29b2658d
++Revises:
++Create Date: 2026-11-07 15:03:53.862860
++
++Первая миграция: создаёт все таблицы магазина книг.
++
++Что дописано вручную поверх autogenerate:
++  * CHECK-ограничения на уровне колонок (Alembic их не замечает);
++  * удаление PostgreSQL enum-типов в downgrade (drop_table их не удаляет).
++"""
++from typing import Sequence, Union
++
++from alembic import op
++import sqlalchemy as sa
++
++
++# revision identifiers, used by Alembic.
++revision: str = 'b70e29b2658d'
++down_revision: Union[str, Sequence[str], None] = None
++branch_labels: Union[str, Sequence[str], None] = None
++depends_on: Union[str, Sequence[str], None] = None
++
++
++def upgrade() -> None:
++    """Upgrade schema."""
++    op.create_table('authors',
++    sa.Column('full_name', sa.String(length=200), nullable=False),
++    sa.Column('bio', sa.String(), nullable=True),
++    sa.Column('birth_year', sa.SmallInteger(), nullable=True),
++    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
++    sa.PrimaryKeyConstraint('id')
++    )
++    op.create_index(op.f('ix_authors_full_name'), 'authors', ['full_name'], unique=False)
++    op.create_table('genres',
++    sa.Column('name', sa.String(length=100), nullable=False),
++    sa.Column('slug', sa.String(length=100), nullable=False),
++    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
++    sa.PrimaryKeyConstraint('id'),
++    sa.UniqueConstraint('name'),
++    sa.UniqueConstraint('slug')
++    )
++    op.create_table('publishers',
++    sa.Column('name', sa.String(length=200), nullable=False),
++    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
++    sa.PrimaryKeyConstraint('id'),
++    sa.UniqueConstraint('name')
++    )
++    op.create_table('users',
++    sa.Column('email', sa.String(), nullable=False),
++    sa.Column('hashed_password', sa.String(), nullable=False),
++    sa.Column('full_name', sa.String(), nullable=False),
++    sa.Column('role', sa.Enum('customer', 'admin', name='user_role'), server_default='customer', nullable=False),
++    sa.Column('is_active', sa.Boolean(), nullable=False),
++    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
++    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
++    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
++    sa.PrimaryKeyConstraint('id'),
++    sa.UniqueConstraint('email')
++    )
++    op.create_table('books',
++    sa.Column('title', sa.String(), nullable=False),
++    sa.Column('description', sa.String(), nullable=True),
++    sa.Column('isbn', sa.String(length=13), nullable=False),
++    sa.Column('publisher_id', sa.Integer(), nullable=True),
++    sa.Column('publication_year', sa.SmallInteger(), nullable=True),
++    sa.Column('language', sa.String(length=2), nullable=False),
++    sa.Column('pages', sa.Integer(), nullable=True),
++    sa.Column('price', sa.Numeric(precision=10, scale=2), nullable=False),
++    sa.Column('stock', sa.Integer(), nullable=False),
++    sa.Column('cover_url', sa.String(length=500), nullable=False),
++    sa.Column('is_archived', sa.Boolean(), nullable=False),
++    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
++    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
++    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
++    sa.CheckConstraint("isbn ~ '^[0-9]+$'", name='ck_books_isbn_digits'),
++    sa.CheckConstraint('publication_year >= 1450', name='ck_books_publication_year_min'),
++    sa.CheckConstraint('pages > 0', name='ck_books_pages_positive'),
++    sa.CheckConstraint('price >= 0', name='ck_books_price_non_negative'),
++    sa.CheckConstraint('stock >= 0', name='ck_books_stock_positive'),
++    sa.ForeignKeyConstraint(['publisher_id'], ['publishers.id'], ondelete='SET NULL'),
++    sa.PrimaryKeyConstraint('id'),
++    sa.UniqueConstraint('isbn')
++    )
++    op.create_index(op.f('ix_books_publisher_id'), 'books', ['publisher_id'], unique=False)
++    op.create_index(op.f('ix_books_title'), 'books', ['title'], unique=False)
++    op.create_table('orders',
++    sa.Column('user_id', sa.Integer(), nullable=False),
++    sa.Column('status', sa.Enum('pending', 'paid', 'shipped', 'delivered', 'cancelled', name='orderstatus'), nullable=False),
++    sa.Column('total_amount', sa.Numeric(precision=10, scale=2), nullable=False),
++    sa.Column('shipping_address', sa.String(length=500), nullable=False),
++    sa.Column('paid_at', sa.DateTime(timezone=True), nullable=True),
++    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
++    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
++    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
++    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
++    sa.PrimaryKeyConstraint('id')
++    )
++    op.create_index(op.f('ix_orders_user_id'), 'orders', ['user_id'], unique=False)
++    op.create_table('book_authors',
++    sa.Column('book_id', sa.Integer(), nullable=False),
++    sa.Column('author_id', sa.Integer(), nullable=False),
++    sa.ForeignKeyConstraint(['author_id'], ['authors.id'], ondelete='RESTRICT'),
++    sa.ForeignKeyConstraint(['book_id'], ['books.id'], ondelete='CASCADE'),
++    sa.PrimaryKeyConstraint('book_id', 'author_id')
++    )
++    op.create_table('book_genres',
++    sa.Column('book_id', sa.Integer(), nullable=False),
++    sa.Column('genre_id', sa.Integer(), nullable=False),
++    sa.ForeignKeyConstraint(['book_id'], ['books.id'], ondelete='CASCADE'),
++    sa.ForeignKeyConstraint(['genre_id'], ['genres.id'], ondelete='CASCADE'),
++    sa.PrimaryKeyConstraint('book_id', 'genre_id')
++    )
++    op.create_table('cart_items',
++    sa.Column('user_id', sa.Integer(), nullable=False),
++    sa.Column('book_id', sa.Integer(), nullable=False),
++    sa.Column('quantity', sa.Integer(), nullable=False),
++    sa.Column('added_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
++    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
++    sa.CheckConstraint('quantity > 0', name='ck_cart_items_quantity_positive'),
++    sa.ForeignKeyConstraint(['book_id'], ['books.id'], ondelete='CASCADE'),
++    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
++    sa.PrimaryKeyConstraint('id'),
++    sa.UniqueConstraint('user_id', 'book_id', name='uq_cart_items_user_book')
++    )
++    op.create_table('order_items',
++    sa.Column('order_id', sa.Integer(), nullable=False),
++    sa.Column('book_id', sa.Integer(), nullable=False),
++    sa.Column('quantity', sa.Integer(), nullable=False),
++    sa.Column('unit_price', sa.Numeric(precision=10, scale=2), nullable=False),
++    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
++    sa.CheckConstraint('quantity > 0', name='ck_order_items_quantity_positive'),
++    sa.ForeignKeyConstraint(['book_id'], ['books.id'], ondelete='RESTRICT'),
++    sa.ForeignKeyConstraint(['order_id'], ['orders.id'], ondelete='CASCADE'),
++    sa.PrimaryKeyConstraint('id')
++    )
++
++
++def downgrade() -> None:
++    """Downgrade schema."""
++    op.drop_table('order_items')
++    op.drop_table('cart_items')
++    op.drop_table('book_genres')
++    op.drop_table('book_authors')
++    op.drop_index(op.f('ix_orders_user_id'), table_name='orders')
++    op.drop_table('orders')
++    op.drop_index(op.f('ix_books_title'), table_name='books')
++    op.drop_index(op.f('ix_books_publisher_id'), table_name='books')
++    op.drop_table('books')
++    op.drop_table('users')
++    op.drop_table('publishers')
++    op.drop_table('genres')
++    op.drop_index(op.f('ix_authors_full_name'), table_name='authors')
++    op.drop_table('authors')
++
++    # drop_table не удаляет enum-типы PostgreSQL, делаем это явно,
++    # иначе повторный upgrade упадёт с "type already exists".
++    op.execute('DROP TYPE IF EXISTS orderstatus')
++    op.execute('DROP TYPE IF EXISTS user_role')

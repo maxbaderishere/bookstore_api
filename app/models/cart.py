@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -8,9 +8,12 @@ from app.models.base import Base
 
 class CartItem(Base):
     __tablename__ = "cart_items"
+    __table_args__ = (
+        UniqueConstraint("user_id", "book_id", name="uq_cart_items_user_book"),
+    )
 
-    user_id: Mapped[int] = mapped_column(unique=True)
-    book_id: Mapped[int] = mapped_column(unique=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    book_id: Mapped[int] = mapped_column(ForeignKey("books.id", ondelete="CASCADE"))
     quantity: Mapped[int] = mapped_column(
         CheckConstraint("quantity > 0", name="ck_cart_items_quantity_positive")
     )
