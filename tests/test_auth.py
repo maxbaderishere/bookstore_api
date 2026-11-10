@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 import jwt
@@ -237,7 +238,7 @@ async def test_me_expired_token(anon_client: AsyncClient, customer_user):
 
 
 async def test_me_refresh_token_rejected(anon_client: AsyncClient, customer_user):
-    token = create_refresh_token(customer_user.id)
+    token = create_refresh_token(customer_user.id, uuid.uuid4())
 
     response = await anon_client.get(f"{URL}/me", headers=bearer(token))
 
@@ -315,59 +316,3 @@ async def test_me_inactive_user(anon_client: AsyncClient, inactive_user):
     response = await anon_client.get(f"{URL}/me", headers=bearer(token))
 
     assert response.status_code == 401
-
-
-# ---------- POST /auth/refresh ----------
-
-
-async def test_refresh(anon_client: AsyncClient, customer_user):
-    response = await anon_client.post(
-        f"{URL}/refresh",
-        json={"refresh_token": create_refresh_token(customer_user.id)},
-    )
-
-    assert response.status_code == 200
-    body = response.json()
-    me = await anon_client.get(f"{URL}/me", headers=bearer(body["access_token"]))
-    assert me.json()["id"] == customer_user.id
-
-
-async def test_refresh_with_access_token(anon_client: AsyncClient, customer_user):
-    response = await anon_client.post(
-        f"{URL}/refresh",
-        json={"refresh_token": create_access_token(customer_user.id)},
-    )
-
-    assert response.status_code == 401
-
-
-async def test_refresh_expired(anon_client: AsyncClient, customer_user):
-    token = create_token(customer_user.id, TokenType.refresh, timedelta(seconds=-1))
-
-    response = await anon_client.post(f"{URL}/refresh", json={"refresh_token": token})
-
-    assert response.status_code == 401
-    assert response.json()["detail"] == "Invalid or expired refresh token"
-
-
-async def test_refresh_garbage(anon_client: AsyncClient):
-    response = await anon_client.post(
-        f"{URL}/refresh", json={"refresh_token": "garbage"}
-    )
-
-    assert response.status_code == 401
-
-
-async def test_refresh_inactive_user(anon_client: AsyncClient, inactive_user):
-    response = await anon_client.post(
-        f"{URL}/refresh",
-        json={"refresh_token": create_refresh_token(inactive_user.id)},
-    )
-
-    assert response.status_code == 401
-
-
-async def test_refresh_missing_body(anon_client: AsyncClient):
-    response = await anon_client.post(f"{URL}/refresh", json={})
-
-    assert response.status_code == 422

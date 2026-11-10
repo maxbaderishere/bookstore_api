@@ -1,21 +1,14 @@
-import jwt
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.core.security import (
-    TokenType,
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    generate_salt,
-    hash_password,
-    verify_password,
-)
+from app.core.security import generate_salt, hash_password, verify_password
 from app.dependencies import CurrentUser, DbSession, unauthorized
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshRequest, TokenPair
 from app.schemas.user import UserCreate, UserOut
+from app.services import refresh_tokens
+from app.services.refresh_tokens import RefreshTokenError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -23,13 +16,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # чтобы по времени ответа нельзя было узнать, зарегистрирован ли email.
 _DUMMY_SALT = generate_salt()
 _DUMMY_HASH = hash_password("dummy-password", _DUMMY_SALT)
-
-
-def issue_tokens(user: User) -> TokenPair:
-    return TokenPair(
-        access_token=create_access_token(user.id),
-        refresh_token=create_refresh_token(user.id),
-    )
 
 
 @router.post("/register", response_model=UserOut, status_code=201)
@@ -70,21 +56,31 @@ async def login(db: DbSession, data: LoginRequest):
             status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive"
         )
 
-    return issue_tokens(user)
+    return await refresh_tokens.issue_tokens(db, user)
 
 
 @router.post("/refresh", response_model=TokenPair)
 async def refresh(db: DbSession, data: RefreshRequest):
+    """Ротация: старый refresh-токен отзывается, выдаётся новая пара."""
     try:
-        user_id = decode_token(data.refresh_token, TokenType.refresh)
-    except jwt.InvalidTokenError:
+        return await refresh_tokens.rotate(db, data.refresh_token)
+    except RefreshTokenError:
         raise unauthorized("Invalid or expired refresh token") from None
 
-    user = await db.get(User, user_id)
-    if user is None or not user.is_active:
-        raise unauthorized("User not found or inactive")
 
-    return issue_tokens(user)
+@router.post("/logout", status_code=204)
+async def logout(db: DbSession, data: RefreshRequest):
+    """Отзывает переданный refresh-токен."""
+    try:
+        await refresh_tokens.revoke(db, data.refresh_token)
+    except RefreshTokenError:
+        raise unauthorized("Invalid refresh token") from None
+
+
+@router.post("/logout-all", status_code=204)
+async def logout_all(db: DbSession, user: CurrentUser):
+    """Отзывает все refresh-токены текущего пользователя (выход со всех устройств)."""
+    await refresh_tokens.revoke_all(db, user.id)
 
 
 @router.get("/me", response_model=UserOut)
