@@ -12,6 +12,7 @@ from app.db.redis import get_redis
 from app.db.session import get_db
 from app.models.user import User
 from app.services.cache import BookCache
+from app.services.cart import CartService
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 RedisClient = Annotated[Redis, Depends(get_redis)]
@@ -64,3 +65,10 @@ async def get_current_admin(user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(get_current_admin)]
+
+
+def get_cart_service(db: DbSession, user: CurrentUser) -> CartService:
+    return CartService(db, user.id)
+
+
+Cart = Annotated[CartService, Depends(get_cart_service)]
