@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.dependencies import DbSession
+from app.dependencies import AdminUser, DbSession
 from app.models.author import Author
 from app.models.book import Book
 from app.models.genre import Genre
@@ -67,7 +67,7 @@ async def show_book(db: DbSession, book_id: int):
 
 
 @router.post("", response_model=BookOut, status_code=201)
-async def create_book(db: DbSession, data: BookCreate):
+async def create_book(db: DbSession, _: AdminUser, data: BookCreate):
     values = data.model_dump()
     author_ids = values.pop("author_ids", None) or []
     genre_ids = values.pop("genre_ids", None) or []
@@ -86,7 +86,7 @@ async def create_book(db: DbSession, data: BookCreate):
 
 
 @router.patch("/{book_id}", response_model=BookOut)
-async def change_book(db: DbSession, book_id: int, data: BookUpdate):
+async def change_book(db: DbSession, _: AdminUser, book_id: int, data: BookUpdate):
     book = await load_book(db, book_id)
     if book is None:
         raise HTTPException(status_code=404, detail="There is no such book")
@@ -115,7 +115,7 @@ async def change_book(db: DbSession, book_id: int, data: BookUpdate):
 
 
 @router.delete("/{book_id}", status_code=204)
-async def delete_book(db: DbSession, book_id: int):
+async def delete_book(db: DbSession, _: AdminUser, book_id: int):
     book = await db.get(Book, book_id)
     if book is None:
         raise HTTPException(status_code=404, detail="There is no such book")

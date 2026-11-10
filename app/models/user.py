@@ -11,7 +11,7 @@ class User(Base, TimeStampMixin):
 
     email: Mapped[str] = mapped_column(unique=True)
     hashed_password: Mapped[str]
-    salt: Mapped[str] 
+    salt: Mapped[str]
     full_name: Mapped[str]
     role: Mapped[Role] = mapped_column(
         SAEnum(Role, name="user_role", values_callable=lambda e: [m.value for m in e]),
