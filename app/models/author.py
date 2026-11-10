@@ -10,6 +10,6 @@ class Author(Base):
     full_name: Mapped[str] = mapped_column(String(200), index=True, nullable=False)
     bio: Mapped[str | None]
     birth_year: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
-    books: Mapped[list["Book"]] = relationship(
+    books: Mapped[list["Book"]] = relationship(  # noqa: UP037
         secondary="book_authors", back_populates="authors"
     )
