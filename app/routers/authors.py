@@ -1,9 +1,10 @@
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import joinedload, selectinload
 
 from app.db.session import DbSession
 from app.models.author import Author
+from app.models.book import BookAuthor
 from app.routers.utils import commit_or_409
 from app.schemas.author import AuthorCreate, AuthorOut, AuthorUpdate
 
@@ -87,5 +88,16 @@ async def delete_book(db: DbSession, author_id: int):
     author = await db.get(Author, author_id)
     if Author is None:
         raise HTTPException(status_code=404, detail="There is no such author")
+
+    # ORM сам чистит book_authors при delete и обходит ondelete="RESTRICT",
+    # поэтому проверяем связанные книги явно.
+    has_books = await db.scalar(
+        select(exists().where(BookAuthor.author_id == author_id))
+    )
+    if has_books:
+        raise HTTPException(
+            status_code=409, detail="Author has books and cannot be deleted"
+        )
+
     await db.delete(author)
     await db.commit()
