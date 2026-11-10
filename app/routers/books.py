@@ -146,5 +146,5 @@ async def delete_book(db: DbSession, cache: BookCacheDep, _: AdminUser, book_id:
     if book is None:
         raise HTTPException(status_code=404, detail="There is no such book")
     await db.delete(book)
-    await db.commit()
+    await commit_or_409(db, "Book has orders and cannot be deleted")
     await cache.invalidate()

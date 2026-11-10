@@ -14,12 +14,12 @@ async def fetch_by_ids(db: DbSession, model, ids: list[int], name: str) -> list:
     return items
 
 
-async def commit_or_409(db: DbSession) -> None:
+DEFAULT_CONFLICT = "Conflict: a book with such unique data (e.g. ISBN) already exists"
+
+
+async def commit_or_409(db: DbSession, detail: str = DEFAULT_CONFLICT) -> None:
     try:
         await db.commit()
     except IntegrityError:
         await db.rollback()
-        raise HTTPException(
-            status_code=409,
-            detail="Conflict: a book with such unique data (e.g. ISBN) already exists",
-        )
+        raise HTTPException(status_code=409, detail=detail) from None
