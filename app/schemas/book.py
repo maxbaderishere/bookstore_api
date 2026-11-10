@@ -21,7 +21,7 @@ class BookCreate(BaseModel):
     pages: int | None = Field(default=None, gt=0)
     price: Price
     stock: int = Field(default=0, ge=0)
-    cover_url: str | None = Field(default=None, max_length=500)
+    cover_url: str = Field(max_length=500)
     author_ids: list[int]
     genre_ids: list[int]
 

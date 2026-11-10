@@ -20,6 +20,7 @@ NOT_NULLABLE = {
     "publication_year",
     "language",
     "pages",
+    "cover_url",
 }
 
 
