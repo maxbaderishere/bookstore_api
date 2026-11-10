@@ -1,10 +1,14 @@
 import pytest
 import pytest_asyncio
+from fakeredis import FakeAsyncRedis
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import cfg
+from app.core.enums import Role
+from app.core.security import create_access_token, generate_salt, hash_password
+from app.db.redis import get_redis
 from app.db.seeds import seed_database
 from app.db.session import get_db
 from app.main import app
@@ -13,6 +17,7 @@ from app.models.base import BaseModel
 from app.models.book import Book
 from app.models.genre import Genre
 from app.models.publisher import Publisher
+from app.models.user import User
 
 test_engine = create_async_engine(cfg.TEST_DATABASE_URL, echo=False, poolclass=NullPool)
 
@@ -50,17 +55,99 @@ async def db_setup():
     yield
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def redis():
+    """Чистый in-memory Redis на каждый тест вместо настоящего."""
+    fake = FakeAsyncRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake
+
+    yield fake
+
+    await fake.flushall()
+    await fake.aclose()
+    app.dependency_overrides.pop(get_redis, None)
+
+
 @pytest_asyncio.fixture
 async def db(db_setup):
     async with test_sessionmaker() as session:
         yield session
 
 
+TEST_PASSWORD = "correct-horse-battery"
+# pbkdf2 медленный намеренно — считаем хэш один раз на всю сессию
+TEST_SALT = generate_salt()
+TEST_HASH = hash_password(TEST_PASSWORD, TEST_SALT)
+
+
+async def make_user(db, email: str, role: Role, *, is_active: bool = True) -> User:
+    user = User(
+        email=email,
+        full_name=f"{role.value} user",
+        salt=TEST_SALT,
+        hashed_password=TEST_HASH,
+        role=role,
+        is_active=is_active,
+    )
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+@pytest.fixture
+def user_password() -> str:
+    """Пароль всех пользователей из фикстур."""
+    return TEST_PASSWORD
+
+
 @pytest_asyncio.fixture
-async def client(db_setup, override_dependencies):
+async def admin_user(db):
+    return await make_user(db, "admin@example.com", Role.admin)
+
+
+@pytest_asyncio.fixture
+async def customer_user(db):
+    return await make_user(db, "customer@example.com", Role.customer)
+
+
+@pytest_asyncio.fixture
+async def inactive_user(db):
+    return await make_user(db, "inactive@example.com", Role.customer, is_active=False)
+
+
+def auth_headers(user: User) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(user.id)}"}
+
+
+@pytest_asyncio.fixture
+async def anon_client(db_setup, override_dependencies):
+    """Клиент без токена."""
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
+    ) as client:
+        yield client
+
+
+@pytest_asyncio.fixture
+async def client(db_setup, override_dependencies, admin_user):
+    """Клиент с access-токеном администратора."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers=auth_headers(admin_user),
+    ) as client:
+        yield client
+
+
+@pytest_asyncio.fixture
+async def customer_client(db_setup, override_dependencies, customer_user):
+    """Клиент с access-токеном обычного покупателя."""
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers=auth_headers(customer_user),
     ) as client:
         yield client
 

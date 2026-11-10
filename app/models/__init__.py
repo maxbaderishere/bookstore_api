@@ -5,6 +5,7 @@ from app.models.cart import CartItem
 from app.models.genre import Genre
 from app.models.order import OrderItems, Orders
 from app.models.publisher import Publisher
+from app.models.refresh_token import RefreshToken
 from app.models.user import User
 
 __all__ = [
@@ -17,5 +18,6 @@ __all__ = [
     "OrderItems",
     "Orders",
     "Publisher",
+    "RefreshToken",
     "User",
 ]

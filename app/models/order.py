@@ -1,12 +1,16 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Numeric, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.enums import OrderStatus
 from app.models.base import Base
 from app.models.mixins import TimeStampMixin
+
+if TYPE_CHECKING:
+    from app.models.book import Book
 
 
 class Orders(Base, TimeStampMixin):
@@ -24,6 +28,9 @@ class Orders(Base, TimeStampMixin):
     paid_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), server_default=None
     )
+    items: Mapped[list["OrderItems"]] = relationship(  # noqa: UP037
+        order_by="OrderItems.id", cascade="all, delete-orphan"
+    )
 
 
 class OrderItems(Base):
@@ -36,3 +43,4 @@ class OrderItems(Base):
         CheckConstraint("quantity > 0", name="ck_order_items_quantity_positive")
     )
     unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    book: Mapped["Book"] = relationship()  # noqa: UP037

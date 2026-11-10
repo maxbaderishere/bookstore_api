@@ -1,8 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.db.session import DbSession
+from app.dependencies import AdminUser, BookCacheDep, DbSession
 from app.models.author import Author
 from app.models.book import Book
 from app.models.genre import Genre
@@ -47,27 +47,49 @@ async def load_book(
     return result.scalar_one_or_none()
 
 
+def set_cache_header(response: Response, hit: bool) -> None:
+    response.headers["X-Cache"] = "HIT" if hit else "MISS"
+
+
 @router.get("", response_model=list[BookOut])
 async def get_books(
     db: DbSession,
+    cache: BookCacheDep,
+    response: Response,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ):
-    stmt = book_query().order_by(Book.id).limit(limit).offset(offset)
-    result = await db.execute(stmt)
-    return result.scalars().all()
+    async def load() -> list[dict]:
+        stmt = book_query().order_by(Book.id).limit(limit).offset(offset)
+        books = (await db.execute(stmt)).scalars().all()
+        return [BookOut.model_validate(b).model_dump(mode="json") for b in books]
+
+    data, hit = await cache.get_or_load(cache.list_key(limit, offset), load)
+    set_cache_header(response, hit)
+    return data
 
 
 @router.get("/{book_id}", response_model=BookOut)
-async def show_book(db: DbSession, book_id: int):
-    book = await load_book(db, book_id)
-    if book is None:
+async def show_book(
+    db: DbSession, cache: BookCacheDep, response: Response, book_id: int
+):
+    async def load() -> dict | None:
+        book = await load_book(db, book_id)
+        if book is None:
+            return None
+        return BookOut.model_validate(book).model_dump(mode="json")
+
+    data, hit = await cache.get_or_load(cache.book_key(book_id), load)
+    if data is None:
         raise HTTPException(status_code=404, detail="There is no such book")
-    return book
+    set_cache_header(response, hit)
+    return data
 
 
 @router.post("", response_model=BookOut, status_code=201)
-async def create_book(db: DbSession, data: BookCreate):
+async def create_book(
+    db: DbSession, cache: BookCacheDep, _: AdminUser, data: BookCreate
+):
     values = data.model_dump()
     author_ids = values.pop("author_ids", None) or []
     genre_ids = values.pop("genre_ids", None) or []
@@ -81,12 +103,15 @@ async def create_book(db: DbSession, data: BookCreate):
 
     db.add(book)
     await commit_or_409(db)
+    await cache.invalidate()
 
     return await load_book(db, book.id, refresh=True)
 
 
 @router.patch("/{book_id}", response_model=BookOut)
-async def change_book(db: DbSession, book_id: int, data: BookUpdate):
+async def change_book(
+    db: DbSession, cache: BookCacheDep, _: AdminUser, book_id: int, data: BookUpdate
+):
     book = await load_book(db, book_id)
     if book is None:
         raise HTTPException(status_code=404, detail="There is no such book")
@@ -111,13 +136,15 @@ async def change_book(db: DbSession, book_id: int, data: BookUpdate):
         book.genres = await fetch_by_ids(db, Genre, genre_ids, "genres")
 
     await commit_or_409(db)
+    await cache.invalidate()
     return await load_book(db, book_id, refresh=True)
 
 
 @router.delete("/{book_id}", status_code=204)
-async def delete_book(db: DbSession, book_id: int):
+async def delete_book(db: DbSession, cache: BookCacheDep, _: AdminUser, book_id: int):
     book = await db.get(Book, book_id)
     if book is None:
         raise HTTPException(status_code=404, detail="There is no such book")
     await db.delete(book)
-    await db.commit()
+    await commit_or_409(db, "Book has orders and cannot be deleted")
+    await cache.invalidate()
