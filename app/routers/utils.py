@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.db.session import DbSession
+from app.dependencies import DbSession
 
 
 async def fetch_by_ids(db: DbSession, model, ids: list[int], name: str) -> list:
