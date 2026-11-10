@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.dependencies import AdminUser, DbSession
+from app.dependencies import AdminUser, BookCacheDep, DbSession
 from app.models.author import Author
 from app.routers.utils import commit_or_409
 from app.schemas.author import AuthorCreate, AuthorOut, AuthorUpdate
@@ -64,7 +64,7 @@ async def create_author(db: DbSession, _: AdminUser, data: AuthorCreate):
 
 @router.patch("/{author_id}", response_model=AuthorOut)
 async def change_author(
-    db: DbSession, _: AdminUser, author_id: int, data: AuthorUpdate
+    db: DbSession, cache: BookCacheDep, _: AdminUser, author_id: int, data: AuthorUpdate
 ):
     author = await db.get(Author, author_id)
     if author is None:
@@ -80,14 +80,16 @@ async def change_author(
         setattr(author, field, value)
 
     await commit_or_409(db)
+    await cache.invalidate()
     await db.refresh(author)
     return author
 
 
 @router.delete("/{author_id}", status_code=204)
-async def delete_book(db: DbSession, _: AdminUser, author_id: int):
+async def delete_book(db: DbSession, cache: BookCacheDep, _: AdminUser, author_id: int):
     author = await db.get(Author, author_id)
     if Author is None:
         raise HTTPException(status_code=404, detail="There is no such author")
     await db.delete(author)
     await db.commit()
+    await cache.invalidate()

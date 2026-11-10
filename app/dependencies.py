@@ -3,14 +3,25 @@ from typing import Annotated
 import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.enums import Role
 from app.core.security import TokenType, decode_token
+from app.db.redis import get_redis
 from app.db.session import get_db
 from app.models.user import User
+from app.services.cache import BookCache
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+RedisClient = Annotated[Redis, Depends(get_redis)]
+
+
+def get_book_cache(redis: RedisClient) -> BookCache:
+    return BookCache(redis)
+
+
+BookCacheDep = Annotated[BookCache, Depends(get_book_cache)]
 
 bearer_scheme = HTTPBearer(auto_error=False)
 BearerCredentials = Annotated[

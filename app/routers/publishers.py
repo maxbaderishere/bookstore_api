@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
-from app.dependencies import AdminUser, DbSession
+from app.dependencies import AdminUser, BookCacheDep, DbSession
 from app.models.publisher import Publisher
 from app.routers.utils import commit_or_409
 from app.schemas.publisher import PublisherCreate, PublisherOut, PublisherUpdate
@@ -63,7 +63,11 @@ async def create_publisher(db: DbSession, _: AdminUser, data: PublisherCreate):
 
 @router.patch("/{publisher_id}", response_model=PublisherOut)
 async def change_publisher(
-    db: DbSession, _: AdminUser, publisher_id: int, data: PublisherUpdate
+    db: DbSession,
+    cache: BookCacheDep,
+    _: AdminUser,
+    publisher_id: int,
+    data: PublisherUpdate,
 ):
     publisher = await db.get(Publisher, publisher_id)
     if publisher is None:
@@ -75,14 +79,18 @@ async def change_publisher(
         setattr(publisher, field, value)
 
     await commit_or_409(db)
+    await cache.invalidate()
     await db.refresh(publisher)
     return publisher
 
 
 @router.delete("/{publisher_id}", status_code=204)
-async def delete_publisher(db: DbSession, _: AdminUser, publisher_id: int):
+async def delete_publisher(
+    db: DbSession, cache: BookCacheDep, _: AdminUser, publisher_id: int
+):
     publisher = await db.get(Publisher, publisher_id)
     if publisher is None:
         raise HTTPException(status_code=404, detail="There is no such publisher")
     await db.delete(publisher)
     await db.commit()
+    await cache.invalidate()

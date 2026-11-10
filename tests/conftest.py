@@ -1,5 +1,6 @@
 import pytest
 import pytest_asyncio
+from fakeredis import FakeAsyncRedis
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -7,6 +8,7 @@ from sqlalchemy.pool import NullPool
 from app.core.config import cfg
 from app.core.enums import Role
 from app.core.security import create_access_token, generate_salt, hash_password
+from app.db.redis import get_redis
 from app.db.seeds import seed_database
 from app.db.session import get_db
 from app.main import app
@@ -51,6 +53,19 @@ async def db_setup():
         await seed_database(session)
 
     yield
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def redis():
+    """Чистый in-memory Redis на каждый тест вместо настоящего."""
+    fake = FakeAsyncRedis(decode_responses=True)
+    app.dependency_overrides[get_redis] = lambda: fake
+
+    yield fake
+
+    await fake.flushall()
+    await fake.aclose()
+    app.dependency_overrides.pop(get_redis, None)
 
 
 @pytest_asyncio.fixture
