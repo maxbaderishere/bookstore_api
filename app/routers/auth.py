@@ -2,13 +2,13 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.exceptions import RefreshTokenError
 from app.core.security import generate_salt, hash_password, verify_password
 from app.dependencies import CurrentUser, DbSession, unauthorized
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshRequest, TokenPair
 from app.schemas.user import UserCreate, UserOut
 from app.services import refresh_tokens
-from app.services.refresh_tokens import RefreshTokenError
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

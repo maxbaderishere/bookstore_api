@@ -7,6 +7,7 @@ import jwt
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.exceptions import RefreshTokenError
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -16,10 +17,6 @@ from app.core.security import (
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import TokenPair
-
-
-class RefreshTokenError(Exception):
-    """Refresh-токен невалиден, просрочен, отозван или принадлежит неактивному юзеру."""
 
 
 def _now() -> datetime:
