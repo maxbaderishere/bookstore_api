@@ -16,6 +16,10 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
-app = FastAPI(lifespan=lifespan, title="BookStoreApi")
+app = FastAPI(
+    lifespan=lifespan,
+    title="BookStoreApi",
+    swagger_ui_parameters={"persistAuthorization": True},
+)
 register_exception_handlers(app)
 app.include_router(api_router)
