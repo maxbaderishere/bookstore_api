@@ -1,7 +1,7 @@
 from slugify import slugify
 from sqlalchemy import select
 
-from app.db.session import DbSession
+from app.dependencies import DbSession
 from app.models.genre import Genre
 
 DEFAULT_GENRES = [

@@ -112,3 +112,22 @@ async def book(db, publisher, author, genre):
     await db.commit()
     await db.refresh(obj, attribute_names=["authors", "genres"])
     return obj
+
+
+@pytest.fixture
+def book_payload(publisher, author, genre) -> dict:
+    """Валидное тело запроса POST /books; в тестах портят отдельные поля."""
+    return {
+        "title": "Payload book",
+        "description": "Some description",
+        "isbn": "9785170000007",
+        "publisher_id": publisher.id,
+        "publication_year": 2000,
+        "language": "ru",
+        "pages": 320,
+        "price": "450.00",
+        "stock": 5,
+        "cover_url": "https://example.com/payload.jpg",
+        "author_ids": [author.id],
+        "genre_ids": [genre.id],
+    }

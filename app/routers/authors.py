@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload, selectinload
 
-from app.db.session import DbSession
+from app.dependencies import DbSession
 from app.models.author import Author
 from app.routers.utils import commit_or_409
 from app.schemas.author import AuthorCreate, AuthorOut, AuthorUpdate
