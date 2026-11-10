@@ -2,7 +2,7 @@ from typing import Annotated
 
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import OAuth2PasswordBearer
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,10 +25,10 @@ def get_book_cache(redis: RedisClient) -> BookCache:
 
 BookCacheDep = Annotated[BookCache, Depends(get_book_cache)]
 
-bearer_scheme = HTTPBearer(auto_error=False)
-BearerCredentials = Annotated[
-    HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
-]
+# OAuth2 password flow: кнопка Authorize в Swagger сама логинится через
+# /auth/token и подставляет заголовок "Authorization: Bearer <access_token>".
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token", auto_error=False)
+BearerToken = Annotated[str | None, Depends(oauth2_scheme)]
 
 
 def unauthorized(detail: str) -> HTTPException:
@@ -39,14 +39,16 @@ def unauthorized(detail: str) -> HTTPException:
     )
 
 
-async def get_current_user(db: DbSession, credentials: BearerCredentials) -> User:
-    if credentials is None:
+async def get_current_user(db: DbSession, token: BearerToken) -> User:
+    if token is None:
         raise unauthorized("Not authenticated")
 
     try:
-        user_id = decode_token(credentials.credentials, TokenType.access)
+        user_id = decode_token(token, TokenType.access)
+    except jwt.ExpiredSignatureError:
+        raise unauthorized("Access token expired, use /auth/refresh") from None
     except jwt.InvalidTokenError:
-        raise unauthorized("Invalid or expired token") from None
+        raise unauthorized("Invalid access token") from None
 
     user = await db.get(User, user_id)
     if user is None or not user.is_active:

@@ -234,7 +234,7 @@ async def test_me_expired_token(anon_client: AsyncClient, customer_user):
     response = await anon_client.get(f"{URL}/me", headers=bearer(token))
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Invalid or expired token"
+    assert response.json()["detail"] == "Access token expired, use /auth/refresh"
 
 
 async def test_me_refresh_token_rejected(anon_client: AsyncClient, customer_user):
@@ -316,3 +316,115 @@ async def test_me_inactive_user(anon_client: AsyncClient, inactive_user):
     response = await anon_client.get(f"{URL}/me", headers=bearer(token))
 
     assert response.status_code == 401
+
+
+# ---------- POST /auth/token (форма OAuth2, кнопка Authorize в Swagger) ----------
+
+
+async def test_token_form_login(anon_client: AsyncClient, customer_user, user_password):
+    response = await anon_client.post(
+        f"{URL}/token",
+        data={"username": customer_user.email, "password": user_password},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["token_type"] == "bearer"
+    me = await anon_client.get(f"{URL}/me", headers=bearer(body["access_token"]))
+    assert me.json()["id"] == customer_user.id
+
+
+async def test_token_form_wrong_password(anon_client: AsyncClient, customer_user):
+    response = await anon_client.post(
+        f"{URL}/token",
+        data={"username": customer_user.email, "password": "wrong-password"},
+    )
+
+    assert response.status_code == 401
+
+
+async def test_token_form_inactive_user(
+    anon_client: AsyncClient, inactive_user, user_password
+):
+    response = await anon_client.post(
+        f"{URL}/token",
+        data={"username": inactive_user.email, "password": user_password},
+    )
+
+    assert response.status_code == 403
+
+
+async def test_token_form_requires_fields(anon_client: AsyncClient):
+    response = await anon_client.post(f"{URL}/token", data={})
+
+    assert response.status_code == 422
+
+
+async def test_openapi_uses_oauth2_password_flow(anon_client: AsyncClient):
+    schema = (await anon_client.get("/openapi.json")).json()
+
+    [scheme] = schema["components"]["securitySchemes"].values()
+    assert scheme["type"] == "oauth2"
+    assert scheme["flows"]["password"]["tokenUrl"] == "/api/v1/auth/token"
+
+
+# ---------- типичные ошибки клиента ----------
+
+
+async def test_double_bearer_prefix(anon_client: AsyncClient, customer_user):
+    """Вставка "Bearer <token>" в поле, которое само добавляет "Bearer "."""
+    token = create_access_token(customer_user.id)
+
+    response = await anon_client.get(
+        f"{URL}/me", headers={"Authorization": f"Bearer Bearer {token}"}
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid access token"
+
+
+async def test_bearer_scheme_is_case_insensitive(
+    anon_client: AsyncClient, customer_user
+):
+    token = create_access_token(customer_user.id)
+
+    response = await anon_client.get(
+        f"{URL}/me", headers={"Authorization": f"bearer {token}"}
+    )
+
+    assert response.status_code == 200
+
+
+async def test_jti_instead_of_refresh_token(
+    anon_client: AsyncClient, customer_user, user_password
+):
+    """В logout/refresh передают id записи (jti) вместо самого JWT."""
+    login = await anon_client.post(
+        f"{URL}/login",
+        json={"email": customer_user.email, "password": user_password},
+    )
+    payload = jwt.decode(
+        login.json()["refresh_token"], options={"verify_signature": False}
+    )
+
+    response = await anon_client.post(
+        f"{URL}/logout", json={"refresh_token": payload["jti"]}
+    )
+
+    assert response.status_code == 401
+
+
+async def test_refresh_token_as_access_token(
+    anon_client: AsyncClient, customer_user, user_password
+):
+    login = await anon_client.post(
+        f"{URL}/login",
+        json={"email": customer_user.email, "password": user_password},
+    )
+
+    response = await anon_client.get(
+        f"{URL}/me", headers=bearer(login.json()["refresh_token"])
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid access token"

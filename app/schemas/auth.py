@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginRequest(BaseModel):
@@ -15,4 +15,10 @@ class TokenPair(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    refresh_token: str = Field(
+        description=(
+            "Строка refresh_token целиком (JWT вида eyJ...), "
+            "полученная из /auth/login, /auth/token или /auth/refresh"
+        ),
+        examples=["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."],
+    )

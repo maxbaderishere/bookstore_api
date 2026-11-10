@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -41,21 +44,35 @@ async def register(db: DbSession, data: UserCreate):
     return user
 
 
-@router.post("/login", response_model=TokenPair)
-async def login(db: DbSession, data: LoginRequest):
-    result = await db.execute(select(User).where(User.email == data.email.lower()))
+async def authenticate(db: DbSession, email: str, password: str) -> User:
+    result = await db.execute(select(User).where(User.email == email.lower()))
     user = result.scalar_one_or_none()
 
     if user is None:
-        verify_password(data.password, _DUMMY_SALT, _DUMMY_HASH)
+        verify_password(password, _DUMMY_SALT, _DUMMY_HASH)
         raise unauthorized("Incorrect email or password")
-    if not verify_password(data.password, user.salt, user.hashed_password):
+    if not verify_password(password, user.salt, user.hashed_password):
         raise unauthorized("Incorrect email or password")
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="User is inactive"
         )
+    return user
 
+
+@router.post("/login", response_model=TokenPair)
+async def login(db: DbSession, data: LoginRequest):
+    """Вход по JSON. В ответе access_token — для заголовка Authorization,
+    refresh_token — для /auth/refresh и /auth/logout."""
+    user = await authenticate(db, data.email, data.password)
+    return await refresh_tokens.issue_tokens(db, user)
+
+
+@router.post("/token", response_model=TokenPair)
+async def token(db: DbSession, form: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    """Вход по форме OAuth2 — его использует кнопка Authorize в Swagger.
+    В поле username передаётся email."""
+    user = await authenticate(db, form.username, form.password)
     return await refresh_tokens.issue_tokens(db, user)
 
 
