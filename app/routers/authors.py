@@ -86,9 +86,11 @@ async def change_author(
 
 
 @router.delete("/{author_id}", status_code=204)
-async def delete_book(db: DbSession, cache: BookCacheDep, _: AdminUser, author_id: int):
+async def delete_author(
+    db: DbSession, cache: BookCacheDep, _: AdminUser, author_id: int
+):
     author = await db.get(Author, author_id)
-    if Author is None:
+    if author is None:
         raise HTTPException(status_code=404, detail="There is no such author")
     await db.delete(author)
     await db.commit()
